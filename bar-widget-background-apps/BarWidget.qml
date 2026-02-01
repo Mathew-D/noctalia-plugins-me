@@ -7,7 +7,7 @@ import qs.Commons
 import qs.Widgets
 import qs.Services.UI
 
-Rectangle {
+Item {
     id: root
 
     // Bar widget properties (injected by Noctalia)
@@ -19,7 +19,9 @@ Rectangle {
 
     // Layout helpers
     readonly property bool barIsVertical: barPosition === "left" || barPosition === "right"
-    readonly property int iconSize: Style.toOdd(Style.capsuleHeight * 0.65)
+    readonly property string screenName: screen ? screen.name : ""
+    readonly property real capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
+    readonly property int iconSize: Style.toOdd(capsuleHeight * 0.65)
     readonly property string menuIconName: "background"
 
     // Settings
@@ -49,16 +51,14 @@ Rectangle {
     property var windowedApps: []
     property bool portalWorked: false
 
-    // Capsule styling to match built-in widgets
-    radius: Style.radiusM
-    color: Style.capsuleColor
-    border.color: Style.capsuleBorderColor
-    border.width: Style.capsuleBorderWidth
+    // Content dimensions for implicit sizing
+    readonly property real contentWidth: displayMode === "menu" ? capsuleHeight :
+                   (barIsVertical ? capsuleHeight : Math.round(appFlow.implicitWidth))
+    readonly property real contentHeight: displayMode === "menu" ? capsuleHeight :
+                    (barIsVertical ? Math.round(appFlow.implicitHeight) : capsuleHeight)
 
-    implicitHeight: displayMode === "menu" ? Style.capsuleHeight :
-                    (barIsVertical ? Math.round(appFlow.implicitHeight) : Style.capsuleHeight)
-    implicitWidth: displayMode === "menu" ? Style.capsuleHeight :
-                   (barIsVertical ? Style.capsuleHeight : Math.round(appFlow.implicitWidth))
+    implicitWidth: contentWidth
+    implicitHeight: contentHeight
 
     visible: backgroundApps.length > 0
     opacity: backgroundApps.length > 0 ? 1.0 : 0.0
@@ -197,110 +197,123 @@ Rectangle {
         }
     }
 
-    // Menu button mode - single icon with badge
-    Item {
-        id: menuButton
-        anchors.fill: parent
-        visible: displayMode === "menu"
-
-        NIcon {
-            id: menuIcon
-            anchors.centerIn: parent
-            icon: menuIconName
-            pointSize: Style.fontSizeL
-            applyUiScale: false
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-
-            onClicked: {
-                TooltipService.hideImmediately();
-                root.openPanel();
-            }
-
-            onEntered: {
-                var tooltip = root.backgroundApps.length + " background app" +
-                              (root.backgroundApps.length !== 1 ? "s" : "");
-                TooltipService.show(menuIcon, tooltip, BarService.getTooltipDirection());
-            }
-
-            onExited: TooltipService.hide()
-        }
-
-        // Notification badge (visible when apps have status messages)
-        Rectangle {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.rightMargin: 2
-            anchors.topMargin: 1
-            z: 2
-            height: 8
-            width: height
-            radius: Style.radiusXS
-            color: Color.mError
-            border.color: Color.mSurface
-            border.width: Style.borderS
-            visible: root.messageCount > 0
-        }
-    }
-
-    // Full mode - all app icons
-    Flow {
-        id: appFlow
-
+    // Visual capsule centered in parent
+    Rectangle {
+        id: capsule
+        width: root.contentWidth
+        height: root.contentHeight
         anchors.centerIn: parent
-        spacing: Style.marginXS
-        flow: barIsVertical ? Flow.TopToBottom : Flow.LeftToRight
-        visible: displayMode === "full"
 
-        Repeater {
-            model: root.backgroundApps
+        color: Style.capsuleColor
+        border.color: Style.capsuleBorderColor
+        border.width: Style.capsuleBorderWidth
+        radius: Style.radiusM
 
-            delegate: Item {
-                required property var modelData
-                required property int index
+        // Menu button mode - single icon with badge
+        Item {
+            id: menuButton
+            anchors.fill: parent
+            visible: displayMode === "menu"
 
-                width: Style.capsuleHeight
-                height: Style.capsuleHeight
+            NIcon {
+                id: menuIcon
+                anchors.centerIn: parent
+                icon: menuIconName
+                pointSize: Style.fontSizeL
+                applyUiScale: false
+            }
 
-                IconImage {
-                    id: appIcon
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
 
-                    property var appInfo: root.getAppInfo(modelData.appId)
+                onClicked: {
+                    TooltipService.hideImmediately();
+                    root.openPanel();
+                }
 
-                    width: iconSize
-                    height: iconSize
-                    anchors.centerIn: parent
-                    asynchronous: true
-                    source: appInfo.icon
+                onEntered: {
+                    var tooltip = root.backgroundApps.length + " background app" +
+                                  (root.backgroundApps.length !== 1 ? "s" : "");
+                    TooltipService.show(menuIcon, tooltip, BarService.getTooltipDirection());
+                }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onExited: TooltipService.hide()
+            }
 
-                        onClicked: function(mouse) {
-                            TooltipService.hideImmediately();
-                            if (mouse.button === Qt.LeftButton) {
-                                root.activateApp(modelData.appId);
-                            } else if (mouse.button === Qt.RightButton) {
-                                root.openPanel();
+            // Notification badge (visible when apps have status messages)
+            Rectangle {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.rightMargin: 2
+                anchors.topMargin: 1
+                z: 2
+                height: 8
+                width: height
+                radius: Style.radiusXS
+                color: Color.mError
+                border.color: Color.mSurface
+                border.width: Style.borderS
+                visible: root.messageCount > 0
+            }
+        }
+
+        // Full mode - all app icons
+        Flow {
+            id: appFlow
+
+            anchors.centerIn: parent
+            spacing: Style.marginXS
+            flow: barIsVertical ? Flow.TopToBottom : Flow.LeftToRight
+            visible: displayMode === "full"
+
+            Repeater {
+                model: root.backgroundApps
+
+                delegate: Item {
+                    required property var modelData
+                    required property int index
+
+                    width: root.capsuleHeight
+                    height: root.capsuleHeight
+
+                    IconImage {
+                        id: appIcon
+
+                        property var appInfo: root.getAppInfo(modelData.appId)
+
+                        width: iconSize
+                        height: iconSize
+                        anchors.centerIn: parent
+                        asynchronous: true
+                        source: appInfo.icon
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                            onClicked: function(mouse) {
+                                TooltipService.hideImmediately();
+                                if (mouse.button === Qt.LeftButton) {
+                                    root.activateApp(modelData.appId);
+                                } else if (mouse.button === Qt.RightButton) {
+                                    root.openPanel();
+                                }
                             }
-                        }
 
-                        onEntered: {
-                            var tooltip = appIcon.appInfo.name;
-                            if (modelData.message) {
-                                tooltip += "\n" + modelData.message;
+                            onEntered: {
+                                var tooltip = appIcon.appInfo.name;
+                                if (modelData.message) {
+                                    tooltip += "\n" + modelData.message;
+                                }
+                                TooltipService.show(appIcon, tooltip, BarService.getTooltipDirection());
                             }
-                            TooltipService.show(appIcon, tooltip, BarService.getTooltipDirection());
-                        }
 
-                        onExited: TooltipService.hide()
+                            onExited: TooltipService.hide()
+                        }
                     }
                 }
             }

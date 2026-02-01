@@ -5,17 +5,27 @@ import Quickshell.Io
 import qs.Commons
 import qs.Widgets
 
-Rectangle {
+Item {
     id: root
+
+    // Bar widget properties (injected by Noctalia)
+    property var pluginApi: null
+    property var screen: null
+    property string section: ""
+    property string widgetId: ""
+    property string barPosition: ""
 
     // Layout helpers
     readonly property bool barIsVertical: barPosition === "left" || barPosition === "right"
-    property string barPosition: ""
-    readonly property string city: pluginApi?.pluginSettings?.city || pluginApi?.manifest?.metadata?.defaultSettings?.city || "Jerusalem"
+    readonly property string screenName: screen ? screen.name : ""
+    readonly property real capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
 
     // Settings
+    readonly property string city: pluginApi?.pluginSettings?.city || pluginApi?.manifest?.metadata?.defaultSettings?.city || "Jerusalem"
     readonly property string displayTemplate: pluginApi?.pluginSettings?.template || pluginApi?.manifest?.metadata?.defaultSettings?.template || "{day} {month}"
     readonly property string fontFamily: pluginApi?.pluginSettings?.fontFamily || pluginApi?.manifest?.metadata?.defaultSettings?.fontFamily || "Liberation Serif"
+    readonly property bool israeli: pluginApi?.pluginSettings?.israeli !== undefined ? pluginApi.pluginSettings.israeli : (pluginApi?.manifest?.metadata?.defaultSettings?.israeli !== undefined ? pluginApi.manifest.metadata.defaultSettings.israeli : true)
+    readonly property string language: pluginApi?.pluginSettings?.language || pluginApi?.manifest?.metadata?.defaultSettings?.language || "he-x-NoNikud"
 
     // Hebrew date components
     property string hebrewDay: ""
@@ -24,14 +34,13 @@ Rectangle {
     property string hebrewYear: ""
     property string holidayName: ""
     property bool isHoliday: false
-    readonly property bool israeli: pluginApi?.pluginSettings?.israeli !== undefined ? pluginApi.pluginSettings.israeli : (pluginApi?.manifest?.metadata?.defaultSettings?.israeli !== undefined ? pluginApi.manifest.metadata.defaultSettings.israeli : true)
-    readonly property string language: pluginApi?.pluginSettings?.language || pluginApi?.manifest?.metadata?.defaultSettings?.language || "he-x-NoNikud"
 
-    // Bar widget properties (injected by Noctalia)
-    property var pluginApi: null
-    property var screen: null
-    property string section: ""
-    property string widgetId: ""
+    // Content dimensions for implicit sizing
+    readonly property real contentWidth: barIsVertical ? capsuleHeight : Math.round(dateText.implicitWidth + Style.marginM * 2)
+    readonly property real contentHeight: barIsVertical ? Math.round(dateText.implicitHeight + Style.marginS * 2) : capsuleHeight
+
+    implicitWidth: contentWidth
+    implicitHeight: contentHeight
 
     function buildHebcalCommand() {
         var cmd = "hebcal";
@@ -186,43 +195,47 @@ Rectangle {
         hebcalProcess.running = true;
     }
 
-    border.color: Style.capsuleBorderColor
-    border.width: Style.capsuleBorderWidth
-    color: Style.capsuleColor
-    implicitHeight: barIsVertical ? Math.round(dateText.implicitHeight + Style.marginS * 2) : Style.capsuleHeight
-    implicitWidth: barIsVertical ? Style.capsuleHeight : Math.round(dateText.implicitWidth + Style.marginM * 2)
-
-    // Capsule styling to match built-in widgets
-    radius: Style.radiusS
-
     Component.onCompleted: {
         updateHebrewDate();
     }
 
-    // Hebrew date text
-    NText {
-        id: dateText
-
-        LayoutMirroring.enabled: true
+    // Visual capsule centered in parent
+    Rectangle {
+        id: capsule
+        width: root.contentWidth
+        height: root.contentHeight
         anchors.centerIn: parent
-        color: Color.mOnSurface
-        font.family: fontFamily
-        pointSize: Style.fontSizeM
-        text: {
-            var result = formatDate();
-            return result || "---"; // Show placeholder if empty
+
+        color: Style.capsuleColor
+        border.color: Style.capsuleBorderColor
+        border.width: Style.capsuleBorderWidth
+        radius: Style.radiusS
+
+        // Hebrew date text
+        NText {
+            id: dateText
+
+            LayoutMirroring.enabled: true
+            anchors.centerIn: parent
+            color: Color.mOnSurface
+            font.family: fontFamily
+            pointSize: Style.fontSizeM
+            text: {
+                var result = formatDate();
+                return result || "---"; // Show placeholder if empty
+            }
         }
+    }
 
-        // Click to open panel
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            hoverEnabled: true
+    // Click to open panel
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        hoverEnabled: true
 
-            onClicked: {
-                if (pluginApi) {
-                    pluginApi.openPanel(root.screen);
-                }
+        onClicked: {
+            if (pluginApi) {
+                pluginApi.openPanel(root.screen);
             }
         }
     }

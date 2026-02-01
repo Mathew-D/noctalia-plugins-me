@@ -6,7 +6,7 @@ import qs.Commons
 import qs.Widgets
 import qs.Services.UI
 
-Rectangle {
+Item {
     id: root
 
     // Bar widget properties (injected by Noctalia)
@@ -18,6 +18,8 @@ Rectangle {
 
     // Layout helpers
     readonly property bool barIsVertical: barPosition === "left" || barPosition === "right"
+    readonly property string screenName: screen ? screen.name : ""
+    readonly property real capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
 
     // Settings
     readonly property int updateInterval: pluginApi?.pluginSettings?.updateInterval ||
@@ -25,8 +27,8 @@ Rectangle {
                                           2000
 
     // Bar appearance
-    property int barHeight: 3
-    property int barSpacing: 2
+    property int threadBarHeight: 3
+    property int threadBarSpacing: 2
     property int maxBarWidth: 20
 
     // Stats data
@@ -40,14 +42,12 @@ Rectangle {
     readonly property color highUsageColor: Color.mTertiary
     readonly property color criticalUsageColor: Color.mError
 
-    // Capsule styling to match built-in widgets
-    radius: Style.radiusS
-    color: Style.capsuleColor
-    border.color: Style.capsuleBorderColor
-    border.width: Style.capsuleBorderWidth
+    // Content dimensions for implicit sizing
+    readonly property real contentWidth: barIsVertical ? capsuleHeight : Math.round(contentColumn.implicitWidth + Style.marginM * 2)
+    readonly property real contentHeight: barIsVertical ? Math.round(contentColumn.implicitHeight + Style.marginS * 2) : capsuleHeight
 
-    implicitHeight: barIsVertical ? Math.round(contentColumn.implicitHeight + Style.marginS * 2) : Style.capsuleHeight
-    implicitWidth: barIsVertical ? Style.capsuleHeight : Math.round(contentColumn.implicitWidth + Style.marginM * 2)
+    implicitWidth: contentWidth
+    implicitHeight: contentHeight
 
     Component.onCompleted: {
         console.log("CPU Thread Bars bar widget loaded");
@@ -55,64 +55,77 @@ Rectangle {
         coreProcess.running = true;
     }
 
-    // Main content - CPU thread bars
-    Row {
-        id: contentColumn
-
+    // Visual capsule centered in parent
+    Rectangle {
+        id: capsule
+        width: root.contentWidth
+        height: root.contentHeight
         anchors.centerIn: parent
-        spacing: barSpacing
 
-        Repeater {
-            model: root.coreUsages.length
+        color: Style.capsuleColor
+        border.color: Style.capsuleBorderColor
+        border.width: Style.capsuleBorderWidth
+        radius: Style.radiusS
 
-            delegate: Item {
-                required property int index
+        // Main content - CPU thread bars
+        Row {
+            id: contentColumn
 
-                width: barHeight
-                height: maxBarWidth
+            anchors.centerIn: parent
+            spacing: threadBarSpacing
 
-                // Background bar
-                Rectangle {
-                    anchors.fill: parent
-                    border.color: Color.mOnSurfaceVariant
-                    border.width: 1
-                    color: "transparent"
-                    opacity: 0.3
-                    radius: 1
-                }
+            Repeater {
+                model: root.coreUsages.length
 
-                // Usage bar
-                Rectangle {
-                    property real usage: index < root.coreUsages.length ? root.coreUsages[index] : 0
-                    property color usageColor: {
-                        if (usage < 25)
-                            return root.lowUsageColor;
-                        else if (usage < 50)
-                            return root.mediumUsageColor;
-                        else if (usage < 75)
-                            return root.highUsageColor;
-                        else
-                            return root.criticalUsageColor;
+                delegate: Item {
+                    required property int index
+
+                    width: threadBarHeight
+                    height: maxBarWidth
+
+                    // Background bar
+                    Rectangle {
+                        anchors.fill: parent
+                        border.color: Color.mOnSurfaceVariant
+                        border.width: 1
+                        color: "transparent"
+                        opacity: 0.3
+                        radius: 1
                     }
 
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 1
-                    anchors.horizontalCenter: parent.horizontalCenter
-
-                    color: usageColor
-                    width: barHeight - 2
-                    radius: 1
-                    height: Math.max(2, (maxBarWidth - 2) * (usage / 100))
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 200
+                    // Usage bar
+                    Rectangle {
+                        property real usage: index < root.coreUsages.length ? root.coreUsages[index] : 0
+                        property color usageColor: {
+                            if (usage < 25)
+                                return root.lowUsageColor;
+                            else if (usage < 50)
+                                return root.mediumUsageColor;
+                            else if (usage < 75)
+                                return root.highUsageColor;
+                            else
+                                return root.criticalUsageColor;
                         }
-                    }
-                    Behavior on height {
-                        NumberAnimation {
-                            duration: 300
-                            easing.type: Easing.OutQuad
+
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 1
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        color: usageColor
+                        width: threadBarHeight - 2
+                        radius: 1
+                        height: Math.max(2, (maxBarWidth - 2) * (usage / 100))
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 200
+                            }
+                        }
+                        Behavior on height {
+                            NumberAnimation {
+                                duration: 300
+                                easing.type: Easing.OutQuad
+                            }
                         }
                     }
                 }
