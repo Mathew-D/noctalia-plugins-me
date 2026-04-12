@@ -32,6 +32,7 @@ Item {
     // Data properties
     property var zmanimList: []
     property string dafYomi: ""
+    property int omerDay: 0
     property string candleLighting: ""
     property string havdalah: ""
     property string parsha: ""
@@ -56,6 +57,7 @@ Item {
         HebrewCalendarHeaderCard {
             Layout.fillWidth: true
             dafYomi: root.dafYomi
+            omerDay: root.omerDay
             fontFamily: root.fontFamily
             hebrewDay: root.currentHebrewDay
             hebrewMonth: root.currentHebrewMonth
@@ -95,12 +97,16 @@ Item {
     Process {
         id: currentDateProcess
 
-        command: ["bash", "-c", "hebcal --lang " + language + " -T -w"]
+        command: ["bash", "-c", "hebcal --lang " + language + " -o -T -w"]
 
         stdout: SplitParser {
             onRead: function (data) {
                 if (data && data.trim()) {
-                    parseCurrentDate(data.trim());
+                    var line = data.trim();
+                    if (line.indexOf("עומר") >= 0 || line.indexOf("Omer") >= 0)
+                        parseOmerDay(line);
+                    else
+                        parseCurrentDate(line);
                 }
             }
         }
@@ -170,6 +176,7 @@ Item {
     }
 
     function loadCurrentDate() {
+        root.omerDay = 0;
         currentDateProcess.running = true;
     }
 
@@ -184,6 +191,24 @@ Item {
 
     function loadWeeklyData() {
         weeklyDataProcess.running = true;
+    }
+
+    function parseOmerDay(output) {
+        // Hebrew: "4/12/2026 י׳ בעומר"
+        // English: "4/12/2026 10th day of the Omer"
+        var parts = output.split(" ");
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i] === "בעומר" && i > 0) {
+                root.omerDay = hebrewNumeralToInt(parts[i - 1]);
+                console.log("Hebrew Calendar Panel: Omer day:", root.omerDay);
+                return;
+            }
+        }
+        var match = output.match(/(\d+)\w*\s+day\s+of\s+the\s+Omer/);
+        if (match) {
+            root.omerDay = parseInt(match[1]);
+            console.log("Hebrew Calendar Panel: Omer day:", root.omerDay);
+        }
     }
 
     function parseCurrentDate(output) {

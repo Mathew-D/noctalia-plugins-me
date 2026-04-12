@@ -17,6 +17,8 @@ Rectangle {
     property string hebrewWeekday: "א"
     property int hebrewYear: 5786
 
+    property int omerDay: 0
+
     function convertToHebrewNumeral(num) {
         var ones = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
         var tens = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"];
@@ -83,11 +85,26 @@ Rectangle {
         return names[abbrev] || abbrev;
     }
 
+    function omerText() {
+        if (omerDay <= 0)
+            return "";
+        var text = convertToHebrewNumeral(omerDay) + " לעומר";
+        var weeks = Math.floor(omerDay / 7);
+        var days = omerDay % 7;
+        if (weeks > 0) {
+            text += "  ·  ";
+            text += convertToHebrewNumeral(weeks) + " " + (weeks === 1 ? "שבוע" : "שבועות");
+            if (days > 0)
+                text += " ו" + convertToHebrewNumeral(days) + " " + (days === 1 ? "יום" : "ימים");
+        }
+        return text;
+    }
+
     Layout.fillWidth: true
-    Layout.minimumHeight: (60 * Style.uiScaleRatio) + (Style.marginM * 2)
-    Layout.preferredHeight: (60 * Style.uiScaleRatio) + (Style.marginM * 2)
+    Layout.minimumHeight: (60 * Style.uiScaleRatio) + (omerDay > 0 ? 20 * Style.uiScaleRatio : 0) + (Style.marginM * 2)
+    Layout.preferredHeight: (60 * Style.uiScaleRatio) + (omerDay > 0 ? 20 * Style.uiScaleRatio : 0) + (Style.marginM * 2)
     color: Color.mPrimary
-    implicitHeight: (60 * Style.uiScaleRatio) + (Style.marginM * 2)
+    implicitHeight: (60 * Style.uiScaleRatio) + (omerDay > 0 ? 20 * Style.uiScaleRatio : 0) + (Style.marginM * 2)
     radius: Style.radiusL
 
     ColumnLayout {
@@ -173,6 +190,20 @@ Rectangle {
             // Spacer
             Item {
                 Layout.fillWidth: true
+            }
+        }
+
+        // Sefirat HaOmer
+        RowLayout {
+            Layout.fillWidth: true
+            layoutDirection: Qt.RightToLeft
+            visible: root.omerDay > 0
+
+            NText {
+                color: Qt.alpha(Color.mOnPrimary, 0.85)
+                font.family: root.fontFamily
+                pointSize: Style.fontSizeS
+                text: root.omerText()
             }
         }
     }
